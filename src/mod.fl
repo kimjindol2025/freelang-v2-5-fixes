@@ -1,0 +1,4 @@
+/* FreeLang v2.5 Fixes - Module Integration */
+
+pub use crate::lib::Core;
+pub use crate::lib::initialize;
