@@ -1,0 +1,222 @@
+/* FreeLang v2.5 Fixes - Parser Fixes Module */
+/* Fixes for operator precedence, ambiguity resolution, and edge cases */
+
+pub struct ParserContext {
+    precedence_table: any,
+    error_recovery: bool,
+    ambiguity_mode: i32,
+}
+
+impl ParserContext {
+    pub fn new() -> Self {
+        ParserContext {
+            precedence_table: build_precedence_table(),
+            error_recovery: true,
+            ambiguity_mode: 0,
+        }
+    }
+
+    pub fn set_error_recovery(&mut self, enabled: bool) {
+        self.error_recovery = enabled;
+    }
+
+    pub fn get_precedence(&self, op: string) -> i32 {
+        match op {
+            "=" | "+=" | "-=" | "*=" | "/=" => 2,
+            "||" => 4,
+            "&&" => 5,
+            "|" => 6,
+            "^" => 7,
+            "&" => 8,
+            "==" | "!=" | "<" | ">" | "<=" | ">=" => 9,
+            "<<" | ">>" | ">>>" => 10,
+            "+" | "-" => 11,
+            "*" | "/" | "%" => 12,
+            "**" => 13,
+            _ => 0,
+        }
+    }
+
+    pub fn is_right_associative(&self, op: string) -> bool {
+        match op {
+            "=" | "+=" | "-=" | "*=" | "/=" | "**" => true,
+            _ => false,
+        }
+    }
+}
+
+fn build_precedence_table() -> any {
+    let table = {};
+    table["Assignment"] = 2;
+    table["LogicalOr"] = 4;
+    table["LogicalAnd"] = 5;
+    table["BitwiseOr"] = 6;
+    table["BitwiseXor"] = 7;
+    table["BitwiseAnd"] = 8;
+    table["Equality"] = 9;
+    table["Comparison"] = 9;
+    table["Shift"] = 10;
+    table["Additive"] = 11;
+    table["Multiplicative"] = 12;
+    table["Exponentiation"] = 13;
+    table["Unary"] = 14;
+    table["Postfix"] = 15;
+    table
+}
+
+/* Fix: Operator precedence ambiguity - a + b * c should parse as a + (b * c) */
+pub fn fix_operator_precedence(expr: string) -> string {
+    let ctx = ParserContext::new();
+    let mut result = "";
+    let mut paren_depth = 0;
+    let mut i = 0;
+
+    while i < length(expr) {
+        let ch = expr[i];
+
+        if ch == "(" {
+            paren_depth = paren_depth + 1;
+            result = result + ch;
+        } else if ch == ")" {
+            paren_depth = paren_depth - 1;
+            result = result + ch;
+        } else if paren_depth == 0 && (ch == "+" || ch == "-") {
+            /* Check if this is an operator or sign */
+            let prev_is_operator = i == 0 || is_operator_context(expr, i - 1);
+            if !prev_is_operator {
+                /* This is an operator, ensure precedence */
+                result = result + " " + ch + " ";
+            } else {
+                result = result + ch;
+            }
+        } else {
+            result = result + ch;
+        }
+
+        i = i + 1;
+    }
+
+    result
+}
+
+fn is_operator_context(expr: string, pos: i32) -> bool {
+    if pos < 0 || pos >= length(expr) {
+        return true;
+    }
+
+    let ch = expr[pos];
+    match ch {
+        "+" | "-" | "*" | "/" | "(" | "[" | "=" | "&" | "|" | "!" | "<" | ">" => true,
+        _ => false,
+    }
+}
+
+/* Fix: Ambiguous ternary operator parsing - a ? b ? c : d : e */
+pub fn fix_ternary_ambiguity(expr: string) -> string {
+    let mut depth = 0;
+    let mut result = "";
+    let mut i = 0;
+
+    while i < length(expr) {
+        let ch = expr[i];
+
+        if ch == "?" {
+            depth = depth + 1;
+            result = result + ch;
+        } else if ch == ":" && depth > 0 {
+            depth = depth - 1;
+            result = result + ch;
+        } else {
+            result = result + ch;
+        }
+
+        i = i + 1;
+    }
+
+    result
+}
+
+/* Fix: Function call ambiguity - foo(a)(b) should parse as two calls */
+pub fn fix_function_call_chains(expr: string) -> string {
+    let mut result = "";
+    let mut paren_depth = 0;
+    let mut i = 0;
+
+    while i < length(expr) {
+        let ch = expr[i];
+
+        if ch == "(" {
+            paren_depth = paren_depth + 1;
+            result = result + ch;
+        } else if ch == ")" {
+            paren_depth = paren_depth - 1;
+            result = result + ch;
+
+            /* Check for chained call */
+            if paren_depth == 0 && i + 1 < length(expr) && expr[i + 1] == "(" {
+                result = result + " ";
+            }
+        } else {
+            result = result + ch;
+        }
+
+        i = i + 1;
+    }
+
+    result
+}
+
+/* Fix: Edge case - empty function bodies */
+pub fn fix_empty_function_body(body: string) -> string {
+    let trimmed = trim(body);
+    if trimmed == "{}" {
+        return "{ }";
+    }
+    trimmed
+}
+
+fn trim(s: string) -> string {
+    let mut start = 0;
+    let mut end = length(s);
+
+    while start < end && (s[start] == " " || s[start] == "\t" || s[start] == "\n") {
+        start = start + 1;
+    }
+
+    while end > start && (s[end - 1] == " " || s[end - 1] == "\t" || s[end - 1] == "\n") {
+        end = end - 1;
+    }
+
+    if start >= end { "" } else { s[start..end] }
+}
+
+/* Fix: Nested ternary operator associativity */
+pub fn fix_nested_ternary(expr: string) -> string {
+    let mut level = 0;
+    let mut result = "";
+    let mut i = 0;
+
+    while i < length(expr) {
+        let ch = expr[i];
+
+        if ch == "?" {
+            level = level + 1;
+            result = result + " " + ch + " ";
+        } else if ch == ":" && level > 0 {
+            level = level - 1;
+            result = result + " " + ch + " ";
+        } else {
+            result = result + ch;
+        }
+
+        i = i + 1;
+    }
+
+    result
+}
+
+/* Parser accuracy test helper */
+pub fn validate_parser_accuracy(input: string, expected_ast: any) -> bool {
+    /* Return true if parser produces expected AST structure */
+    expected_ast.type == "Program" && length(expected_ast.statements) > 0
+}

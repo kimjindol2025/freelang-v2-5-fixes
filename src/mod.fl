@@ -1,4 +1,34 @@
-/* FreeLang v2.5 Fixes - Module Integration */
+/* FreeLang v2.5 Fixes - Complete Module Integration */
 
-pub use crate::lib::Core;
-pub use crate::lib::initialize;
+pub mod parser_fixes;
+pub mod interpreter_optimizations;
+pub mod type_system_improvements;
+pub mod error_handling;
+pub mod stdlib_updates;
+
+pub use parser_fixes::{
+    ParserContext, fix_operator_precedence, fix_ternary_ambiguity,
+    fix_function_call_chains, fix_empty_function_body, fix_nested_ternary,
+    validate_parser_accuracy,
+};
+
+pub use interpreter_optimizations::{
+    InstructionCache, JumpOptimizer, StackOptimizer, InstructionOptimizer,
+    optimize_jump_table, optimize_instruction_stream, optimize_stack_frames,
+    measure_interpreter_performance,
+};
+
+pub use type_system_improvements::{
+    TypeChecker, GenericResolver, VarianceChecker, TypeInferencer,
+    check_recursive_generic, specialize_generic, unify,
+};
+
+pub use error_handling::{
+    ErrorContext, ErrorMessage, StackTrace, ErrorRecoveryStrategy,
+    create_detailed_error_message, collect_stack_trace, score_error_clarity,
+};
+
+pub use stdlib_updates::{
+    StringUtils, MathUtils, ArrayUtils, CollectionUtils,
+    optimize_function_calls, cleanup_resources,
+};

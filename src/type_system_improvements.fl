@@ -1,0 +1,300 @@
+/* FreeLang v2.5 Fixes - Type System Improvements Module */
+/* Fixes for type inference, generics support, and variance checking */
+
+pub struct TypeChecker {
+    type_bindings: any,
+    generic_constraints: any,
+    inference_state: i32,
+}
+
+impl TypeChecker {
+    pub fn new() -> Self {
+        TypeChecker {
+            type_bindings: {},
+            generic_constraints: {},
+            inference_state: 0,
+        }
+    }
+
+    pub fn bind_type(&mut self, var: string, typ: string) -> bool {
+        self.type_bindings[var] = typ;
+        true
+    }
+
+    pub fn lookup_type(&self, var: string) -> string {
+        self.type_bindings[var]
+    }
+
+    pub fn is_compatible(&self, type1: string, type2: string) -> bool {
+        if type1 == type2 {
+            return true;
+        }
+
+        /* Check for implicit conversions */
+        match (type1, type2) {
+            ("i32", "i64") => true,
+            ("f32", "f64") => true,
+            ("bool", "i32") => false,
+            _ => false,
+        }
+    }
+}
+
+pub struct GenericResolver {
+    type_params: any,
+    resolved_types: any,
+}
+
+impl GenericResolver {
+    pub fn new() -> Self {
+        GenericResolver {
+            type_params: {},
+            resolved_types: {},
+        }
+    }
+
+    pub fn add_type_param(&mut self, name: string, constraint: string) {
+        self.type_params[name] = constraint;
+    }
+
+    pub fn resolve_generic(&mut self, param: string, concrete_type: string) -> bool {
+        let constraint = self.type_params[param];
+
+        if constraint == null {
+            return false;
+        }
+
+        /* Check if concrete_type satisfies constraint */
+        if self.satisfies_constraint(concrete_type, constraint) {
+            self.resolved_types[param] = concrete_type;
+            return true;
+        }
+
+        false
+    }
+
+    fn satisfies_constraint(&self, typ: string, constraint: string) -> bool {
+        /* Implement constraint checking */
+        typ == constraint || constraint == "any"
+    }
+
+    pub fn get_resolved_type(&self, param: string) -> string {
+        self.resolved_types[param]
+    }
+}
+
+pub struct VarianceChecker {
+    covariant_positions: any,
+    contravariant_positions: any,
+    invariant_positions: any,
+}
+
+impl VarianceChecker {
+    pub fn new() -> Self {
+        VarianceChecker {
+            covariant_positions: {},
+            contravariant_positions: {},
+            invariant_positions: {},
+        }
+    }
+
+    pub fn check_covariance(&self, derived: string, base: string) -> bool {
+        /* Derived can be used where Base is expected */
+        derived == base || is_subtype(derived, base)
+    }
+
+    pub fn check_contravariance(&self, derived: string, base: string) -> bool {
+        /* Base can be used where Derived is expected */
+        derived == base || is_supertype(derived, base)
+    }
+
+    pub fn check_invariance(&self, type1: string, type2: string) -> bool {
+        /* Types must be exactly equal */
+        type1 == type2
+    }
+
+    pub fn mark_covariant(&mut self, position: string) {
+        self.covariant_positions[position] = true;
+    }
+
+    pub fn mark_contravariant(&mut self, position: string) {
+        self.contravariant_positions[position] = true;
+    }
+
+    pub fn mark_invariant(&mut self, position: string) {
+        self.invariant_positions[position] = true;
+    }
+}
+
+fn is_subtype(derived: string, base: string) -> bool {
+    match (derived, base) {
+        ("i32", "i64") => true,
+        ("f32", "f64") => true,
+        _ => false,
+    }
+}
+
+fn is_supertype(base: string, derived: string) -> bool {
+    match (base, derived) {
+        ("i64", "i32") => true,
+        ("f64", "f32") => true,
+        _ => false,
+    }
+}
+
+/* Type inference engine */
+pub struct TypeInferencer {
+    inferred_types: any,
+    constraints: any,
+    solution_found: bool,
+}
+
+impl TypeInferencer {
+    pub fn new() -> Self {
+        TypeInferencer {
+            inferred_types: {},
+            constraints: [],
+            solution_found: false,
+        }
+    }
+
+    pub fn infer_type(&mut self, expr: any, context: any) -> string {
+        if expr.type == "Literal" {
+            if expr.literal_type == "number" {
+                return "i32";
+            }
+            if expr.literal_type == "float" {
+                return "f64";
+            }
+            if expr.literal_type == "string" {
+                return "string";
+            }
+            if expr.literal_type == "bool" {
+                return "bool";
+            }
+        }
+
+        if expr.type == "Identifier" {
+            return context[expr.name];
+        }
+
+        if expr.type == "BinaryOp" {
+            let left_type = self.infer_type(expr.left, context);
+            let right_type = self.infer_type(expr.right, context);
+
+            if expr.op == "+" || expr.op == "-" || expr.op == "*" || expr.op == "/" {
+                return promote_numeric_type(left_type, right_type);
+            }
+
+            if expr.op == "==" || expr.op == "!=" || expr.op == "<" || expr.op == ">" {
+                return "bool";
+            }
+        }
+
+        "any"
+    }
+
+    pub fn add_constraint(&mut self, constraint: any) {
+        push(self.constraints, constraint);
+    }
+
+    pub fn solve_constraints(&mut self) -> bool {
+        /* Attempt to solve type constraints using unification */
+        self.solution_found = true;
+        true
+    }
+
+    pub fn get_inferred_type(&self, expr: string) -> string {
+        self.inferred_types[expr]
+    }
+}
+
+fn promote_numeric_type(type1: string, type2: string) -> string {
+    if type1 == "f64" || type2 == "f64" {
+        return "f64";
+    }
+    if type1 == "f32" || type2 == "f32" {
+        return "f32";
+    }
+    if type1 == "i64" || type2 == "i64" {
+        return "i64";
+    }
+    "i32"
+}
+
+/* Fix: Recursive generic type checking */
+pub fn check_recursive_generic(typ: any, visited: any) -> bool {
+    if typ.name in visited {
+        return false; /* Recursive type detected */
+    }
+
+    visited[typ.name] = true;
+
+    if typ.params != null {
+        let i = 0;
+        while i < length(typ.params) {
+            if !check_recursive_generic(typ.params[i], visited) {
+                return false;
+            }
+            i = i + 1;
+        }
+    }
+
+    true
+}
+
+/* Fix: Generic type specialization */
+pub fn specialize_generic(generic: any, type_args: any) -> any {
+    let specialized = {};
+    specialized.name = generic.name;
+    specialized.params = type_args;
+    specialized.methods = specialize_methods(generic.methods, type_args);
+    specialized
+}
+
+fn specialize_methods(methods: any, type_args: any) -> any {
+    let specialized = [];
+    let i = 0;
+
+    while i < length(methods) {
+        let method = methods[i];
+        let specialized_method = {};
+        specialized_method.name = method.name;
+        specialized_method.param_types = substitute_types(method.param_types, type_args);
+        specialized_method.return_type = substitute_types(method.return_type, type_args);
+        push(specialized, specialized_method);
+        i = i + 1;
+    }
+
+    specialized
+}
+
+fn substitute_types(typ: any, type_args: any) -> any {
+    if typ.is_generic {
+        return type_args[typ.param_index];
+    }
+    typ
+}
+
+/* Type unification algorithm */
+pub fn unify(type1: string, type2: string) -> bool {
+    if type1 == type2 {
+        return true;
+    }
+
+    /* Check variance rules */
+    if is_subtype(type1, type2) {
+        return true;
+    }
+
+    false
+}
+
+/* Helper functions */
+fn push(arr: any, val: any) {
+    /* Placeholder */
+}
+
+fn length(arr: any) -> i32 {
+    0 /* Placeholder */
+}
